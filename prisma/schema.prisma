@@ -1,0 +1,58 @@
+// Prisma Schema - SQLite
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Hotel {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  floors    Floor[]
+}
+
+model Floor {
+  id         String   @id @default(cuid())
+  hotelId    String
+  number     String
+  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  rooms      Room[]
+  createdAt  DateTime @default(now())
+}
+
+model Room {
+  id         String    @id @default(cuid())
+  floorId    String
+  number     String
+  floor      Floor     @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  positions  Position[]
+  createdAt  DateTime  @default(now())
+}
+
+model Position {
+  id        String    @id @default(cuid())
+  roomId    String
+  name      String
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  artworkId String?   @unique
+  artwork   Artwork?  @relation(fields: [artworkId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+}
+
+model Artwork {
+  id          String    @id @default(cuid())
+  title       String
+  author      String
+  authorAge   Int?
+  description String?
+  image       String?
+  position    Position?
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>酒店挂画仓储管理系统</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: #f5f7fa; color: #333; }
+    
+    /* 布局 */
+    .app-container { display: flex; min-height: 100vh; }
+    .sidebar { width: 220px; background: #1f2937; color: white; padding: 20px 0; }
+    .sidebar h1 { font-size: 18px; padding: 0 20px 20px; border-bottom: 1px solid #374151; margin-bottom: 10px; }
+    .nav-item { padding: 12px 20px; cursor: pointer; transition: background 0.2s; }
+    .nav-item:hover, .nav-item.active { background: #374151; }
+    .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+    
+    /* 组件 */
+    .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card h2 { font-size: 18px; margin-bottom: 15px; color: #1f2937; }
+    .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-secondary { background: #6b7280; color: white; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: #374151; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px; }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f9fafb; font-weight: 600; color: #374151; }
+    tr:hover { background: #f9fafb; }
+    
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+    .tag-pending { background: #fef3c7; color: #92400e; }
+    .tag-assigned { background: #dbeafe; color: #1e40af; }
+    .tag-framed { background: #d1fae5; color: #065f46; }
+    .tag-hung { background: #e0e7ff; color: #3730a3; }
+    
+    .tree-item { padding: 8px 0; }
+    .tree-children { padding-left: 20px; border-left: 2px solid #e5e7eb; margin-left: 10px; }
+    
+    .grid { display: grid; gap: 15px; }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    
+    .stat-card { background: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .stat-card .number { font-size: 32px; font-weight: bold; color: #3b82f6; }
+    .stat-card .label { color: #6b7280; margin-top: 5px; }
+    
+    .artwork-card { background: white; border-radius: 8px; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+    .artwork-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .artwork-card img { width: 100%; height: 150px; object-fit: cover; }
+    .artwork-card .info { padding: 12px; }
+    .artwork-card .title { font-weight: 600; margin-bottom: 5px; }
+    .artwork-card .location { font-size: 12px; color: #6b7280; }
+    
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal h3 { margin-bottom: 15px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    
+    .empty-state { text-align: center; padding: 40px; color: #9ca3af; }
+    .badge { background: #ef4444; color: white; border-radius: 10px; padding: 2px 6px; font-size: 10px; margin-left: 5px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="app-container">
+      <!-- 侧边栏 -->
+      <div class="sidebar">
+        <h1>🎨 挂画管理系统</h1>
+        <div class="nav-item" :class="{ active: currentView === 'admin' }" @click="currentView = 'admin'">📍 空间管理</div>
+        <div class="nav-item" :class="{ active: currentView === 'artwork' }" @click="currentView = 'artwork'">🖼️ 画作管理</div>
+        <div class="nav-item" :class="{ active: currentView === 'dashboard' }" @click="currentView = 'dashboard'">📊 全局看板</div>
+        <div class="nav-item" :class="{ active: currentView === 'supplier' }" @click="currentView = 'supplier'">🔨 供应商工作台</div>
+        <div style="padding: 20px; margin-top: auto; border-top: 1px solid #374151; margin-top: 20px;">
+          <button class="btn btn-danger btn-sm" style="width: 100%;" @click="clearAllData">🗑️ 清空所有数据</button>
+        </div>
+      </div>
+      
+      <!-- 主内容区 -->
+      <div class="main-content">
+        
+        <!-- 空间管理 -->
+        <div v-if="currentView === 'admin'">
+          <div class="card">
+            <h2>酒店管理</h2>
+            <div class="form-group" style="display: flex; gap: 10px;">
+              <input v-model="newHotelName" placeholder="输入酒店名称" style="flex: 1;" @keyup.enter="addHotel">
+              <button class="btn btn-primary" @click="addHotel">添加酒店</button>
+            </div>
+          </div>
+          
+          <div class="card" v-for="hotel in hotels" :key="hotel.id">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <h2>{{ hotel.name }}</h2>
+              <button class="btn btn-danger btn-sm" @click="deleteHotel(hotel.id)">删除</button>
+            </div>
+            
+            <div class="form-group" style="display: flex; gap: 10px;">
+              <input v-model="newFloorNumbers[hotel.id]" placeholder="楼层号（如：3层）" style="flex: 1;" @keyup.enter="addFloor(hotel.id)">
+              <button class="btn btn-primary btn-sm" @click="addFloor(hotel.id)">添加楼层</button>
+            </div>
+            
+            <div v-for="floor in getFloors(hotel.id)" :key="floor.id" class="tree-item">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong>📐 {{ floor.number }}</strong>
+                <button class="btn btn-danger btn-sm" @click="deleteFloor(floor.id)">删除</button>
+              </div>
+              
+              <div class="tree-children">
+                <div class="form-group" style="display: flex; gap: 10px;">
+                  <input v-model="newRoomNumbers[floor.id]" placeholder="房间号（如：301）" style="flex: 1;" @keyup.enter="addRoom(floor.id)">
+                  <button class="btn btn-primary btn-sm" @click="addRoom(floor.id)">添加房间</button>
+                </div>
+                
+                <div v-for="room in getRooms(floor.id)" :key="room.id" class="tree-item">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>🚪 房间 {{ room.number }}</span>
+                    <button class="btn btn-danger btn-sm" @click="deleteRoom(room.id)">删除</button>
+                  </div>
+                  
+                  <div class="tree-children">
+                    <div class="form-group" style="display: flex; gap: 10px;">
+                      <input v-model="newPositionNames[room.id]" placeholder="位置名称（如：床头背景墙）" style="flex: 1;" @keyup.enter="addPosition(room.id)">
+                      <button class="btn btn-primary btn-sm" @click="addPosition(room.id)">添加位置</button>
+                    </div>
+                    
+                    <div v-for="pos in getPositions(room.id)" :key="pos.id" style="padding: 5px 0;">
+                      <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>📌 {{ pos.name }} <span v-if="pos.artworkId" class="tag tag-assigned">已挂画</span><span v-else class="tag tag-pending">空位</span></span>
+                        <button class="btn btn-danger btn-sm" @click="deletePosition(pos.id)">删除</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 画作管理 -->
+        <div v-if="currentView === 'artwork'">
+          <div class="card">
+            <h2>上传画作</h2>
+            <div class="grid grid-2">
+              <div class="form-group">
+                <label>作品名称</label>
+                <input v-model="artworkForm.title" placeholder="输入作品名称">
+              </div>
+              <div class="form-group">
+                <label>作者名称</label>
+                <input v-model="artworkForm.author" placeholder="输入作者名称">
+              </div>
+              <div class="form-group">
+                <label>作者年龄</label>
+                <input v-model.number="artworkForm.authorAge" type="number" placeholder="输入作者年龄">
+              </div>
+              <div class="form-group">
+                <label>画作预览图</label>
+                <input type="file" accept="image/*" @change="handleImageUpload">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>作品阐释</label>
+              <textarea v-model="artworkForm.description" placeholder="输入作品阐释"></textarea>
+            </div>
+            <button class="btn btn-primary" @click="addArtwork">保存画作</button>
+          </div>
+          
+          <div class="card">
+            <h2>画作列表</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>预览</th>
+                  <th>作品名称</th>
+                  <th>作者</th>
+                  <th>状态</th>
+                  <th>位置</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="artwork in artworks" :key="artwork.id">
+                  <td><img :src="artwork.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2240%22><rect fill=%22%23ddd%22 width=%2260%22 height=%2240%22/></svg>'" style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;"></td>
+                  <td>{{ artwork.title }}</td>
+                  <td>{{ artwork.author }} ({{ artwork.authorAge }}岁)</td>
+                  <td><span class="tag" :class="'tag-' + artwork.status">{{ statusText(artwork.status) }}</span></td>
+                  <td>{{ getArtworkLocation(artwork) }}</td>
+                  <td>
+                    <button class="btn btn-primary btn-sm" @click="openAssignModal(artwork)" v-if="!artwork.positionId">分配位置</button>
+                    <button class="btn btn-secondary btn-sm" @click="openAssignModal(artwork)" v-else>修改位置</button>
+                    <button class="btn btn-danger btn-sm" @click="deleteArtwork(artwork.id)">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="artworks.length === 0" class="empty-state">暂无画作</div>
+          </div>
+        </div>
+        
+        <!-- 全局看板 -->
+        <div v-if="currentView === 'dashboard'">
+          <div class="grid grid-4" style="margin-bottom: 20px;">
+            <div class="stat-card">
+              <div class="number">{{ hotels.length }}</div>
+              <div class="label">酒店数量</div>
+            </div>
+            <div class="stat-card">
+              <div class="number">{{ artworks.length }}</div>
+              <div class="label">画作总数</div>
+            </div>
+            <div class="stat-card">
+              <div class="number">{{ getTotalPositions() }}</div>
+              <div class="label">总位置数</div>
+            </div>
+            <div class="stat-card">
+              <div class="number">{{ getEmptyPositions() }}</div>
+              <div class="label">空余位置</div>
+            </div>
+          </div>
+          
+          <div class="card">
+            <h2>画作分布总览</h2>
+            <div class="form-group" style="margin-bottom: 20px;">
+              <input v-model="searchQuery" placeholder="🔍 搜索展签内容（作品名称、作者、阐释...）" style="padding: 12px 16px; font-size: 15px;">
+            </div>
+            <div class="grid grid-3">
+              <div v-for="artwork in filteredArtworks" :key="artwork.id" class="artwork-card" @click="openArtworkDetail(artwork)">
+                <img :src="artwork.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22150%22><rect fill=%22%23f3f4f6%22 width=%22300%22 height=%22150%22/><text x=%2250%%22 y=%2250%%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%239ca3af%22>暂无图片</text></svg>'">
+                <div class="info">
+                  <div class="title" v-html="highlightText(artwork.title)"></div>
+                  <div class="location">{{ getArtworkLocation(artwork) }}</div>
+                  <span class="tag" :class="'tag-' + artwork.status">{{ statusText(artwork.status) }}</span>
+                  <div v-if="searchQuery && artwork.author" style="font-size: 12px; color: #6b7280; margin-top: 4px;" v-html="highlightText(artwork.author + '（' + artwork.authorAge + '岁）')"></div>
+                </div>
+              </div>
+            </div>
+            <div v-if="filteredArtworks.length === 0 && searchQuery" class="empty-state">未找到匹配 "{{ searchQuery }}" 的画作</div>
+            <div v-else-if="artworks.length === 0" class="empty-state">暂无画作</div>
+          </div>
+        </div>
+
+        <!-- 供应商工作台 -->
+        <div v-if="currentView === 'supplier'">
+          <div class="card">
+            <h2>待制作清单</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>画作</th>
+                  <th>展签信息</th>
+                  <th>具体位置</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="artwork in supplierList" :key="artwork.id">
+                  <td>
+                    <img :src="artwork.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2260%22><rect fill=%22%23ddd%22 width=%2280%22 height=%2260%22/></svg>'" style="width: 80px; height: 60px; object-fit: cover; border-radius: 4px;">
+                    <div style="margin-top: 5px; font-weight: 600;">{{ artwork.title }}</div>
+                  </td>
+                  <td>
+                    <div><strong>作品：</strong>{{ artwork.title }}</div>
+                    <div><strong>作者：</strong>{{ artwork.author }}（{{ artwork.authorAge }}岁）</div>
+                    <div><strong>阐释：</strong>{{ artwork.description }}</div>
+                  </td>
+                  <td>{{ getArtworkLocation(artwork) }}</td>
+                  <td><span class="tag" :class="'tag-' + artwork.status">{{ statusText(artwork.status) }}</span></td>
+                  <td>
+                    <button class="btn btn-success btn-sm" @click="updateArtworkStatus(artwork.id, 'framed')" v-if="artwork.status === 'assigned'">标记已装裱</button>
+                    <button class="btn btn-primary btn-sm" @click="updateArtworkStatus(artwork.id, 'hung')" v-if="artwork.status === 'framed'">标记已悬挂</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="supplierList.length === 0" class="empty-state">暂无待制作画作</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 分配位置弹窗 -->
+    <div v-if="showAssignModal" class="modal-overlay" @click.self="showAssignModal = false">
+      <div class="modal">
+        <h3>分配位置 - {{ assigningArtwork?.title }}</h3>
+        <div class="form-group">
+          <label>选择酒店</label>
+          <select v-model="assignForm.hotelId" @change="assignForm.floorId = null; assignForm.roomId = null; assignForm.positionId = null">
+            <option value="">请选择酒店</option>
+            <option v-for="hotel in hotels" :key="hotel.id" :value="hotel.id">{{ hotel.name }}</option>
+          </select>
+        </div>
+        <div class="form-group" v-if="assignForm.hotelId">
+          <label>选择楼层</label>
+          <select v-model="assignForm.floorId" @change="assignForm.roomId = null; assignForm.positionId = null">
+            <option value="">请选择楼层</option>
+            <option v-for="floor in getFloors(assignForm.hotelId)" :key="floor.id" :value="floor.id">{{ floor.number }}</option>
+          </select>
+        </div>
+        <div class="form-group" v-if="assignForm.floorId">
+          <label>选择房间</label>
+          <select v-model="assignForm.roomId" @change="assignForm.positionId = null">
+            <option value="">请选择房间</option>
+            <option v-for="room in getRooms(assignForm.floorId)" :key="room.id" :value="room.id">{{ room.number }}</option>
+          </select>
+        </div>
+        <div class="form-group" v-if="assignForm.roomId">
+          <label>选择位置</label>
+          <select v-model="assignForm.positionId">
+            <option value="">请选择位置</option>
+            <option v-for="pos in getPositions(assignForm.roomId)" :key="pos.id" :value="pos.id">
+              {{ pos.name }} <span v-if="positionOccupancy[pos.id] && positionOccupancy[pos.id] !== assigningArtwork?.id">[已被占用]</span>
+            </option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" @click="showAssignModal = false">取消</button>
+          <button class="btn btn-primary" @click="assignPosition">确认分配</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 画作详情弹窗 -->
+    <div v-if="showDetailModal" class="modal-overlay" @click.self="showDetailModal = false">
+      <div class="modal">
+        <h3>{{ detailArtwork?.title }}</h3>
+        <img :src="detailArtwork?.image" style="width: 100%; border-radius: 4px; margin-bottom: 15px;">
+        <p><strong>作者：</strong>{{ detailArtwork?.author }}（{{ detailArtwork?.authorAge }}岁）</p>
+        <p><strong>作品阐释：</strong>{{ detailArtwork?.description }}</p>
+        <p><strong>位置：</strong>{{ getArtworkLocation(detailArtwork) }}</p>
+        <p><strong>状态：</strong><span class="tag" :class="'tag-' + detailArtwork?.status">{{ statusText(detailArtwork?.status) }}</span></p>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" @click="showDetailModal = false">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted, watch } = Vue;
+    
+    createApp({
+      setup() {
+        // 数据
+        const hotels = ref([]);
+        const artworks = ref([]);
+        const currentView = ref('dashboard');
+        
+        // 空间管理
+        const newHotelName = ref('');
+        const newFloorNumbers = ref({});
+        const newRoomNumbers = ref({});
+        const newPositionNames = ref({});
+        
+        // 画作表单
+        const artworkForm = ref({ title: '', author: '', authorAge: '', description: '', image: null });
+        
+        // 分配弹窗
+        const showAssignModal = ref(false);
+        const assigningArtwork = ref(null);
+        const assignForm = ref({ hotelId: '', floorId: '', roomId: '', positionId: '' });
+        
+        // 详情弹窗
+        const showDetailModal = ref(false);
+        const detailArtwork = ref(null);
+        
+        // 搜索
+        const searchQuery = ref('');
+        
+        // 位置占用映射（computed 确保永远和 artworks 同步）
+        const positionOccupancy = computed(() => {
+          const occupancy = {};
+          artworks.value.forEach(artwork => {
+            if (artwork.positionId) {
+              occupancy[artwork.positionId] = artwork.id;
+            }
+          });
+          return occupancy;
+        });
+        
+        // 生成唯一ID
+        const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+        
+        // 从 LocalStorage 加载数据
+        const loadData = () => {
+          const savedHotels = localStorage.getItem('hotels');
+          const savedArtworks = localStorage.getItem('artworks');
+          if (savedHotels) hotels.value = JSON.parse(savedHotels);
+          if (savedArtworks) artworks.value = JSON.parse(savedArtworks);
+          // 从已有数据重建位置占用映射
+          const occupancy = {};
+          artworks.value.forEach(artwork => {
+            if (artwork.positionId) {
+              occupancy[artwork.positionId] = artwork.id;
+            }
+          });
+          positionOccupancy.value = occupancy;
+        };
+        
+        // 保存到 LocalStorage
+        watch([hotels, artworks], () => {
+          localStorage.setItem('hotels', JSON.stringify(hotels.value));
+          localStorage.setItem('artworks', JSON.stringify(artworks.value));
+        }, { deep: true });
+        
+        // 酒店操作
+        const addHotel = () => {
+          if (!newHotelName.value.trim()) return;
+          hotels.value.push({ id: generateId(), name: newHotelName.value });
+          newHotelName.value = '';
+        };
+        
+        const deleteHotel = (id) => {
+          if (!confirm('确定删除该酒店及其所有楼层、房间、位置？')) return;
+          hotels.value = hotels.value.filter(h => h.id !== id);
+          // 清理关联的房间、楼层、位置
+          artworks.value.forEach(artwork => {
+            if (artwork.positionId) {
+              const pos = getPositionById(artwork.positionId);
+              if (!pos) {
+                artwork.positionId = null;
+                artwork.status = 'pending';
+              }
+            }
+          });
+        };
+        
+        // 楼层操作
+        const addFloor = (hotelId) => {
+          const input = newFloorNumbers.value[hotelId];
+          if (!input || !input.trim()) return;
+          const hotel = hotels.value.find(h => h.id === hotelId);
+          if (!hotel.floors) hotel.floors = [];
+          hotel.floors.push({ id: generateId(), number: input });
+          newFloorNumbers.value[hotelId] = '';
+        };
+        
+        const deleteFloor = (floorId) => {
+          hotels.value.forEach(hotel => {
+            hotel.floors = (hotel.floors || []).filter(f => f.id !== floorId);
+          });
+        };
+        
+        const getFloors = (hotelId) => {
+          const hotel = hotels.value.find(h => h.id === hotelId);
+          return hotel?.floors || [];
+        };
+        
+        // 房间操作
+        const addRoom = (floorId) => {
+          const input = newRoomNumbers.value[floorId];
+          if (!input || !input.trim()) return;
+          hotels.value.forEach(hotel => {
+            const floor = (hotel.floors || []).find(f => f.id === floorId);
+            if (floor) {
+              if (!floor.rooms) floor.rooms = [];
+              floor.rooms.push({ id: generateId(), number: input });
+            }
+          });
+          newRoomNumbers.value[floorId] = '';
+        };
+        
+        const deleteRoom = (roomId) => {
+          hotels.value.forEach(hotel => {
+            (hotel.floors || []).forEach(floor => {
+              floor.rooms = (floor.rooms || []).filter(r => r.id !== roomId);
+            });
+          });
+        };
+        
+        const getRooms = (floorId) => {
+          for (const hotel of hotels.value) {
+            const floor = (hotel.floors || []).find(f => f.id === floorId);
+            if (floor) return floor.rooms || [];
+          }
+          return [];
+        };
+        
+        // 位置操作
+        const addPosition = (roomId) => {
+          const input = newPositionNames.value[roomId];
+          if (!input || !input.trim()) return;
+          hotels.value.forEach(hotel => {
+            (hotel.floors || []).forEach(floor => {
+              const room = (floor.rooms || []).find(r => r.id === roomId);
+              if (room) {
+                if (!room.positions) room.positions = [];
+                room.positions.push({ id: generateId(), name: input, artworkId: null });
+              }
+            });
+          });
+          newPositionNames.value[roomId] = '';
+        };
+        
+        const deletePosition = (positionId) => {
+          // 查找是否有画作占用此位置，如果有则重置画作状态
+          artworks.value.forEach(artwork => {
+            if (artwork.positionId === positionId) {
+              artwork.positionId = null;
+              artwork.status = 'pending';
+            }
+          });
+          hotels.value.forEach(hotel => {
+            (hotel.floors || []).forEach(floor => {
+              (floor.rooms || []).forEach(room => {
+                room.positions = (room.positions || []).filter(p => p.id !== positionId);
+              });
+            });
+          });
+        };
+        
+        const getPositions = (roomId) => {
+          for (const hotel of hotels.value) {
+            for (const floor of (hotel.floors || [])) {
+              const room = (floor.rooms || []).find(r => r.id === roomId);
+              if (room) {
+                if (!room.positions) room.positions = [];
+                return room.positions;
+              }
+            }
+          }
+          return [];
+        };
+        
+        const getPositionById = (positionId) => {
+          for (const hotel of hotels.value) {
+            for (const floor of (hotel.floors || [])) {
+              for (const room of (floor.rooms || [])) {
+                const pos = (room.positions || []).find(p => p.id === positionId);
+                if (pos) return pos;
+              }
+            }
+          }
+          return null;
+        };
+        
+        // 更新位置占用状态（确保对象引用一致）
+        const updatePositionArtworkId = (positionId, artworkId) => {
+          for (const hotel of hotels.value) {
+            for (const floor of (hotel.floors || [])) {
+              for (const room of (floor.rooms || [])) {
+                const pos = (room.positions || []).find(p => p.id === positionId);
+                if (pos) {
+                  pos.artworkId = artworkId;
+                  return true;
+                }
+              }
+            }
+          }
+          return false;
+        };
+        
+        // 画作操作
+        const handleImageUpload = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            artworkForm.value.image = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        };
+        
+        const addArtwork = () => {
+          if (!artworkForm.value.title || !artworkForm.value.author) {
+            alert('请填写作品名称和作者');
+            return;
+          }
+          artworks.value.push({
+            id: generateId(),
+            title: artworkForm.value.title,
+            author: artworkForm.value.author,
+            authorAge: artworkForm.value.authorAge,
+            description: artworkForm.value.description,
+            image: artworkForm.value.image,
+            positionId: null,
+            status: 'pending'
+          });
+          artworkForm.value = { title: '', author: '', authorAge: '', description: '', image: null };
+        };
+        
+        const deleteArtwork = (id) => {
+          artworks.value = artworks.value.filter(a => a.id !== id);
+        };
+        
+        // 分配位置
+        const openAssignModal = (artwork) => {
+          assigningArtwork.value = artwork;
+          assignForm.value = { hotelId: '', floorId: '', roomId: '', positionId: '' };
+          showAssignModal.value = true;
+        };
+        
+        const assignPosition = () => {
+          if (!assignForm.value.positionId) {
+            alert('请选择位置');
+            return;
+          }
+          
+          // 查找位置并检查占用
+          let targetPos = null;
+          for (const hotel of hotels.value) {
+            for (const floor of (hotel.floors || [])) {
+              for (const room of (floor.rooms || [])) {
+                const pos = (room.positions || []).find(p => p.id === assignForm.value.positionId);
+                if (pos) {
+                  targetPos = pos;
+                  break;
+                }
+              }
+              if (targetPos) break;
+            }
+            if (targetPos) break;
+          }
+          
+          if (!targetPos) {
+            alert('位置不存在');
+            return;
+          }
+          
+          // 使用 positionOccupancy 检查占用
+          const occupyingArtworkId = positionOccupancy.value[assignForm.value.positionId];
+          if (occupyingArtworkId && occupyingArtworkId !== assigningArtwork.value.id) {
+            alert('该位置已被其他画作占用');
+            return;
+          }
+          
+          // 清除旧位置
+          const artwork = artworks.value.find(a => a.id === assigningArtwork.value.id);
+          if (artwork) {
+            artwork.positionId = assignForm.value.positionId;
+            artwork.status = 'assigned';
+          }
+          showAssignModal.value = false;
+        };
+        
+        // 获取画作位置信息
+        const getArtworkLocation = (artwork) => {
+          if (!artwork?.positionId) return '未分配';
+          const pos = getPositionById(artwork.positionId);
+          if (!pos) return '位置已删除';
+          
+          for (const hotel of hotels.value) {
+            for (const floor of (hotel.floors || [])) {
+              for (const room of (floor.rooms || [])) {
+                if ((room.positions || []).includes(pos)) {
+                  return `${hotel.name} - ${floor.number} - ${room.number} - ${pos.name}`;
+                }
+              }
+            }
+          }
+          return '未知位置';
+        };
+        
+        // 更新画作状态
+        const updateArtworkStatus = (id, status) => {
+          const artwork = artworks.value.find(a => a.id === id);
+          if (artwork) artwork.status = status;
+        };
+        
+        // 详情弹窗
+        const openArtworkDetail = (artwork) => {
+          detailArtwork.value = artwork;
+          showDetailModal.value = true;
+        };
+        
+        // 搜索过滤
+        const filteredArtworks = computed(() => {
+          if (!searchQuery.value.trim()) return artworks.value;
+          const query = searchQuery.value.toLowerCase().trim();
+          return artworks.value.filter(artwork => {
+            return (artwork.title && artwork.title.toLowerCase().includes(query)) ||
+                   (artwork.author && artwork.author.toLowerCase().includes(query)) ||
+                   (artwork.description && artwork.description.toLowerCase().includes(query)) ||
+                   String(artwork.authorAge).includes(query);
+          });
+        });
+        
+        // 高亮匹配文本
+        const highlightText = (text) => {
+          if (!text || !searchQuery.value.trim()) return text;
+          const query = searchQuery.value.trim();
+          const regex = new RegExp(`(${query})`, 'gi');
+          return text.replace(regex, '<mark style="background: #fef08a; padding: 1px 2px; border-radius: 2px;">$1</mark>');
+        };
+        
+        // 统计
+        const getTotalPositions = () => {
+          let count = 0;
+          hotels.value.forEach(hotel => {
+            (hotel.floors || []).forEach(floor => {
+              (floor.rooms || []).forEach(room => {
+                count += (room.positions || []).length;
+              });
+            });
+          });
+          return count;
+        };
+        
+        const getEmptyPositions = () => {
+          let count = 0;
+          hotels.value.forEach(hotel => {
+            (hotel.floors || []).forEach(floor => {
+              (floor.rooms || []).forEach(room => {
+                (room.positions || []).forEach(pos => {
+                  if (!pos.artworkId) count++;
+                });
+              });
+            });
+          });
+          return count;
+        };
+        
+        // 供应商列表
+        const supplierList = computed(() => {
+          return artworks.value.filter(a => a.positionId && a.status !== 'hung');
+        });
+        
+        // 状态文本
+        const statusText = (status) => {
+          const map = { pending: '待分配', assigned: '已分配', framed: '已装裱', hung: '已悬挂' };
+          return map[status] || status;
+        };
+        
+        // 初始化
+        onMounted(() => {
+          loadData();
+        });
+        
+        // 清空所有数据
+        const clearAllData = () => {
+          if (confirm('确定要清空所有数据吗？此操作不可撤销！')) {
+            localStorage.clear();
+            hotels.value = [];
+            artworks.value = [];
+            alert('数据已清空，请刷新页面或重新开始');
+          }
+        };
+        
+        return {
+          hotels, artworks, currentView,
+          newHotelName, newFloorNumbers, newRoomNumbers, newPositionNames,
+          artworkForm, showAssignModal, assigningArtwork, assignForm,
+          showDetailModal, detailArtwork,
+          searchQuery, filteredArtworks, highlightText,
+          positionOccupancy, clearAllData,
+          addHotel, deleteHotel, addFloor, deleteFloor, getFloors,
+          addRoom, deleteRoom, getRooms, addPosition, deletePosition, getPositions,
+          handleImageUpload, addArtwork, deleteArtwork,
+          openAssignModal, assignPosition, getArtworkLocation,
+          updateArtworkStatus, openArtworkDetail,
+          getTotalPositions, getEmptyPositions, supplierList, statusText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
