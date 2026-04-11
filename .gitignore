@@ -10,6 +10,11 @@ dist/
 *.db
 *.db-journal
 prisma/dev.db
+prisma/migrate.sql
+prisma/migrate.ts
+prisma/export-sqlite.js
+prisma/import-to-postgres.js
+prisma/migrate-sqlite-to-postgres.js
 .DS_Store
 .vscode/
 .idea/
